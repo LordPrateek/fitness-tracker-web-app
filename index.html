@@ -1,0 +1,858 @@
+```html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fitness Tracker — v1 (deficit propagation & NoFap fix)</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --card:#fff; --muted:#6b7280; --accent:#2563eb; --accent-2:#0ea5a4;
+    --success:#10b981; --danger:#ef4444; --glass: rgba(255,255,255,0.6);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    background:linear-gradient(180deg,#eef2ff 0%,var(--bg) 100%); color:#0f172a;
+    padding:18px;
+  }
+  header{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  header h1{margin:0;font-size:1.2rem;display:flex;gap:8px;align-items:center}
+  .container{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .card{background:var(--card);border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(15,23,42,0.06)}
+  .col-4{grid-column:span 4}
+  .col-8{grid-column:span 8}
+  .col-6{grid-column:span 6}
+  .col-12{grid-column:span 12}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  label{display:block;font-size:0.85rem;color:var(--muted);margin-bottom:6px}
+  input[type="text"], input[type="number"], select, textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #e6e9ef}
+  button{background:var(--accent);color:#fff;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--accent);border:1px solid #dbeafe}
+  button.small{padding:6px 8px;font-size:0.9rem;border-radius:8px}
+  .muted{color:var(--muted);font-size:0.9rem}
+  .meals{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .meal{border-radius:10px;padding:10px;border:1px dashed #eef2ff;background:linear-gradient(180deg,rgba(255,255,255,0.6),transparent)}
+  .meal h3{margin:0 0 8px 0;font-size:1rem;display:flex;justify-content:space-between;align-items:center}
+  .food-list{max-height:160px;overflow:auto;margin-bottom:8px}
+  .food-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9}
+  .food-item:last-child{border-bottom:0}
+  .totals{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+  .pill{background:#f8fafc;padding:6px 8px;border-radius:999px;font-weight:600}
+  .water-bar{height:18px;background:#e6eefc;border-radius:999px;overflow:hidden}
+  .water-fill{height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#3b82f6);transition:width 600ms ease}
+  .water-fill.goal-hit{animation:pop 900ms ease}
+  @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+  .calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .day{padding:8px;border-radius:8px;text-align:center;background:#fff;border:1px solid #f1f5f9;cursor:pointer}
+  .day.has-data{background:linear-gradient(90deg,#ecfdf5,#dcfce7);border-color:#bbf7d0}
+  .status{padding:8px;border-radius:8px}
+  .skipped{opacity:0.5;text-decoration:line-through}
+  .flex-between{display:flex;justify-content:space-between;align-items:center}
+  footer{margin-top:18px;text-align:center;color:var(--muted);font-size:0.9rem}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:left}
+  th{background:#fbfdff;font-weight:700}
+  .emoji{font-size:1.1rem;margin-right:6px}
+  .top-right{margin-left:auto;text-align:right}
+  .dateLabel{font-weight:700}
+  .controls{display:flex;gap:8px;align-items:center}
+  .nofap-card{display:flex;gap:12px;align-items:center;justify-content:space-between}
+  .streak{font-weight:800;padding:8px 12px;border-radius:999px;background:linear-gradient(90deg,#fff7ed,#fff1d6);color:#b45309}
+  .quantity{width:110px}
+  .muted-small{font-size:0.8rem;color:var(--muted)}
+  .header-row{display:flex;align-items:center;gap:12px}
+  .accent-badge{background:var(--accent-2);color:#fff;padding:6px 10px;border-radius:999px;font-weight:700}
+  @media (max-width:900px){
+    .col-4,.col-8,.col-6{grid-column:span 12}
+    .meals{grid-template-columns:1fr}
+    .top-right{order:3;width:100%;margin-top:8px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-row">
+    <h1>🏃‍♂️ Fitness Tracker</h1>
+    <div class="accent-badge">Local</div>
+  </div>
+  <div class="muted">Deficit propagation, NoFap fluid streaks, quantity, improved UI</div>
+  <div class="top-right">
+    <div class="controls">
+      <input id="datePicker" type="date" />
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="prevDay" class="small ghost">◀ Prev</button>
+        <button id="todayBtn" class="small">Today</button>
+        <button id="nextDay" class="small ghost">Next ▶</button>
+      </div>
+    </div>
+    <div style="margin-top:6px" class="dateLabel muted" id="dateLabel">Today</div>
+  </div>
+</header>
+
+<main class="container">
+  <section class="card col-4">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 style="margin:0">⚙️ Goals & Water</h2>
+      <div class="muted-small">v1 storage</div>
+    </div>
+
+    <div style="margin-top:10px;margin-bottom:10px">
+      <label><strong>Maintenance Calories</strong></label>
+      <input id="maintenanceInput" type="number" min="0" placeholder="e.g., 2200" />
+    </div>
+
+    <div style="margin-bottom:10px">
+      <label><strong>Deficit Range (%)</strong></label>
+      <div class="row">
+        <input id="defMin" type="number" min="0" max="50" value="10" style="width:48%" />
+        <input id="defMax" type="number" min="0" max="50" value="15" style="width:48%" />
+      </div>
+      <div class="muted-small" style="margin-top:6px">When changed, this deficit will apply to this date and all future dates until you change it again.</div>
+      <div style="margin-top:8px">
+        <button id="applyDeficit" class="small">Apply deficit from this date →</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px;margin-bottom:12px">
+      <div class="flex-between"><label><strong>Calorie Status</strong></label><div id="calorieStatus" class="muted">—</div></div>
+      <div class="muted" style="font-size:0.85rem;margin-top:6px">Shows if daily calories are below, within, or above target range</div>
+    </div>
+
+    <div class="card" style="padding:10px;margin-bottom:12px">
+      <label><strong>💧 Water Tracker</strong></label>
+      <div class="muted" style="font-size:0.85rem">+250 ml / −250 ml; set custom goal</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="add250" class="small">+250 ml</button>
+        <button id="sub250" class="small ghost">−250 ml</button>
+        <input id="waterCustom" type="number" min="0" placeholder="Goal ml" />
+        <button id="setWaterGoal" class="small ghost">Set</button>
+      </div>
+      <div style="margin-top:10px">
+        <div class="water-bar"><div id="waterFill" class="water-fill"></div></div>
+        <div class="flex-between" style="margin-top:6px">
+          <div class="muted" id="waterText">0 / 2000 ml</div>
+          <div id="waterAnim" class="muted"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px;margin-bottom:12px">
+      <div class="nofap-card">
+        <div>
+          <label><strong>🔥 NoFap</strong></label>
+          <div class="muted" style="font-size:0.85rem">Tap to mark success for the selected day</div>
+        </div>
+        <div style="text-align:right">
+          <div id="nofapStreak" class="streak">0 🔥</div>
+          <div style="margin-top:8px">
+            <button id="nofapToggle" class="small">Mark Day</button>
+            <button id="nofapReset" class="small ghost">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label><strong>⚖️ Weight (kg) — log today's</strong></label>
+      <div class="row">
+        <input id="weightInput" type="number" step="0.1" placeholder="e.g., 72.5" />
+        <button id="saveWeight" class="small">Save</button>
+      </div>
+      <div class="muted" id="weightSaved" style="margin-top:6px"></div>
+    </div>
+
+    <div>
+      <label><strong>🚶 Steps — log today's</strong></label>
+      <div class="row">
+        <input id="stepsInput" type="number" min="0" placeholder="e.g., 8000" />
+        <button id="saveSteps" class="small">Save</button>
+      </div>
+      <div class="muted" id="stepsSaved" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section class="card col-8">
+    <h2 style="margin-top:0">🍽️ Meals</h2>
+    <div class="meals" id="mealsContainer"></div>
+
+    <div style="margin-top:12px" class="card">
+      <div class="flex-between">
+        <div>
+          <strong>Daily Totals</strong>
+          <div class="muted" style="font-size:0.85rem">Calories and macros for selected date</div>
+        </div>
+        <div class="totals">
+          <div class="pill">🔥 Calories: <span id="totalCalories">0</span></div>
+          <div class="pill">💪 Protein: <span id="totalProtein">0</span> g</div>
+          <div class="pill">🍞 Carbs: <span id="totalCarbs">0</span> g</div>
+          <div class="pill">🥑 Fats: <span id="totalFats">0</span> g</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card col-6">
+    <h2 style="margin-top:0">📅 Calendar</h2>
+    <div class="muted" style="font-size:0.9rem;margin-bottom:8px">Click a date to select it. Dates with any logged data are highlighted.</div>
+    <div id="calendar" class="calendar"></div>
+    <div style="margin-top:8px" class="muted">Green days have saved data</div>
+  </section>
+
+  <section class="card col-6">
+    <h2 style="margin-top:0">📈 Weight & Steps History</h2>
+    <div class="muted" style="font-size:0.9rem;margin-bottom:8px">Recent entries (click a row to edit)</div>
+    <div style="max-height:260px;overflow:auto">
+      <table id="historyTable">
+        <thead><tr><th>Date</th><th>Weight (kg)</th><th>Steps</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card col-12">
+    <h2 style="margin-top:0">Data Controls</h2>
+    <div class="row">
+      <button id="exportBtn" class="small ghost">Export JSON</button>
+      <button id="importBtn" class="small ghost">Import JSON</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+      <button id="clearBtn" class="small" style="background:var(--danger)">Clear All</button>
+    </div>
+    <div class="muted" style="margin-top:8px">All data is stored locally in your browser's localStorage.</div>
+  </section>
+</main>
+
+<footer>Responsive, modular, localStorage-based fitness tracker — v1 storage</footer>
+
+<script>
+/* -------------------------
+   Data model and utilities
+   ------------------------- */
+/* Use the original storage key so your old data is read/written */
+const STORAGE_KEY = 'fitness_tracker_v1';
+
+/* Default structure for a date entry */
+function defaultDay() {
+  return {
+    meals: {
+      breakfast: { skipped:false, items:[] },
+      lunch:     { skipped:false, items:[] },
+      dinner:    { skipped:false, items:[] },
+      junk:      { skipped:false, items:[] }
+    },
+    water: { consumedMl: 0, goalMl: 2000 },
+    maintenance: null,
+    // deficit includes flags:
+    // min, max, _userSet: true if user explicitly set on that date
+    deficit: { min:10, max:15, _userSet:false },
+    weightKg: null,
+    steps: null,
+    nofap: false
+  };
+}
+
+/* Get date key YYYY-MM-DD */
+function getDateKey(date = new Date()){
+  const d = new Date(date);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+/* Read/write store */
+function readStore(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){
+    console.error('Failed to read store', e);
+    return {};
+  }
+}
+function writeStore(store){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+}
+function getDay(key){
+  const store = readStore();
+  if(!store[key]) store[key] = defaultDay();
+  // normalize deficit shape for older entries
+  if(!('deficit' in store[key])) store[key].deficit = { min:10, max:15, _userSet:false };
+  if(typeof store[key].deficit._userSet === 'undefined') store[key].deficit._userSet = false;
+  return store[key];
+}
+function saveDay(key, dayObj){
+  const store = readStore();
+  store[key] = dayObj;
+  writeStore(store);
+}
+
+/* -------------------------
+   UI references
+   ------------------------- */
+const datePicker = document.getElementById('datePicker');
+const todayBtn = document.getElementById('todayBtn');
+const prevDayBtn = document.getElementById('prevDay');
+const nextDayBtn = document.getElementById('nextDay');
+const dateLabel = document.getElementById('dateLabel');
+
+const mealsContainer = document.getElementById('mealsContainer');
+const totalCaloriesEl = document.getElementById('totalCalories');
+const totalProteinEl = document.getElementById('totalProtein');
+const totalCarbsEl = document.getElementById('totalCarbs');
+const totalFatsEl = document.getElementById('totalFats');
+const maintenanceInput = document.getElementById('maintenanceInput');
+const defMin = document.getElementById('defMin');
+const defMax = document.getElementById('defMax');
+const applyDeficitBtn = document.getElementById('applyDeficit');
+const calorieStatus = document.getElementById('calorieStatus');
+
+const add250 = document.getElementById('add250');
+const sub250 = document.getElementById('sub250');
+const waterCustom = document.getElementById('waterCustom');
+const setWaterGoal = document.getElementById('setWaterGoal');
+const waterFill = document.getElementById('waterFill');
+const waterText = document.getElementById('waterText');
+const waterAnim = document.getElementById('waterAnim');
+
+const weightInput = document.getElementById('weightInput');
+const saveWeight = document.getElementById('saveWeight');
+const weightSaved = document.getElementById('weightSaved');
+const stepsInput = document.getElementById('stepsInput');
+const saveSteps = document.getElementById('saveSteps');
+const stepsSaved = document.getElementById('stepsSaved');
+
+const calendarEl = document.getElementById('calendar');
+const historyTableBody = document.querySelector('#historyTable tbody');
+
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const importFile = document.getElementById('importFile');
+const clearBtn = document.getElementById('clearBtn');
+
+const nofapStreakEl = document.getElementById('nofapStreak');
+const nofapToggle = document.getElementById('nofapToggle');
+const nofapReset = document.getElementById('nofapReset');
+
+let selectedDateKey = getDateKey();
+datePicker.value = selectedDateKey;
+
+/* Meal keys */
+const MEAL_KEYS = ['breakfast','lunch','dinner','junk'];
+
+/* -------------------------
+   Create meal cards (with quantity)
+   ------------------------- */
+function createMealCards(){
+  mealsContainer.innerHTML = '';
+  MEAL_KEYS.forEach(mealKey=>{
+    const card = document.createElement('div');
+    card.className = 'meal card';
+    card.dataset.meal = mealKey;
+    card.innerHTML = `
+      <h3>
+        <span style="text-transform:capitalize">${mealKey}</span>
+        <div>
+          <button class="small ghost skipBtn">Skip</button>
+          <button class="small addBtn">Add</button>
+        </div>
+      </h3>
+      <div class="food-list" data-list></div>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <input class="foodName" type="text" placeholder="Food name" />
+        <input class="foodQty quantity" type="text" placeholder="qty (e.g., 1 cup)" />
+        <input class="foodCals" type="number" placeholder="kcal" style="width:90px" />
+        <input class="foodProtein" type="number" placeholder="P g" style="width:70px" />
+        <input class="foodCarbs" type="number" placeholder="C g" style="width:70px" />
+        <input class="foodFats" type="number" placeholder="F g" style="width:70px" />
+      </div>
+    `;
+    mealsContainer.appendChild(card);
+  });
+}
+
+/* Render meals for selected date */
+function renderMeals(){
+  const day = getDay(selectedDateKey);
+  MEAL_KEYS.forEach(key=>{
+    const card = mealsContainer.querySelector(`[data-meal="${key}"]`);
+    const list = card.querySelector('[data-list]');
+    list.innerHTML = '';
+    const meal = day.meals[key];
+    if(meal.items.length === 0){
+      list.innerHTML = '<div class="muted">No items</div>';
+    }else{
+      meal.items.forEach((it, idx)=>{
+        const el = document.createElement('div');
+        el.className = 'food-item';
+        el.innerHTML = `
+          <div>
+            <div style="font-weight:600">${escapeHtml(it.name)} <span class="muted">(${escapeHtml(it.quantity||'')})</span></div>
+            <div class="muted" style="font-size:0.85rem">${it.protein}P • ${it.carbs}C • ${it.fats}F</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:700">${it.calories} kcal</div>
+            <div style="margin-top:6px">
+              <button class="small ghost editBtn">Edit</button>
+              <button class="small" data-remove>Remove</button>
+            </div>
+          </div>
+        `;
+        if(meal.skipped) el.classList.add('skipped');
+        list.appendChild(el);
+
+        el.querySelector('[data-remove]').addEventListener('click', ()=>{
+          meal.items.splice(idx,1);
+          saveDay(selectedDateKey, day);
+          updateAll();
+        });
+        el.querySelector('.editBtn').addEventListener('click', ()=>{
+          const nameIn = card.querySelector('.foodName');
+          const qtyIn = card.querySelector('.foodQty');
+          const calsIn = card.querySelector('.foodCals');
+          const pIn = card.querySelector('.foodProtein');
+          const cIn = card.querySelector('.foodCarbs');
+          const fIn = card.querySelector('.foodFats');
+          nameIn.value = it.name;
+          qtyIn.value = it.quantity || '';
+          calsIn.value = it.calories;
+          pIn.value = it.protein;
+          cIn.value = it.carbs;
+          fIn.value = it.fats;
+          meal.items.splice(idx,1);
+          saveDay(selectedDateKey, day);
+          updateAll();
+        });
+      });
+    }
+
+    // skip button
+    const skipBtn = card.querySelector('.skipBtn');
+    skipBtn.textContent = meal.skipped ? 'Unskip' : 'Skip';
+    skipBtn.onclick = ()=>{
+      meal.skipped = !meal.skipped;
+      saveDay(selectedDateKey, day);
+      updateAll();
+    };
+
+    // add button
+    const addBtn = card.querySelector('.addBtn');
+    addBtn.onclick = ()=>{
+      const nameIn = card.querySelector('.foodName');
+      const qtyIn = card.querySelector('.foodQty');
+      const calsIn = card.querySelector('.foodCals');
+      const pIn = card.querySelector('.foodProtein');
+      const cIn = card.querySelector('.foodCarbs');
+      const fIn = card.querySelector('.foodFats');
+      const name = nameIn.value.trim();
+      const quantity = qtyIn.value.trim();
+      const calories = Number(calsIn.value) || 0;
+      const protein = Number(pIn.value) || 0;
+      const carbs = Number(cIn.value) || 0;
+      const fats = Number(fIn.value) || 0;
+      if(!name) return alert('Enter food name');
+      meal.items.push({ name, quantity, calories, protein, carbs, fats });
+      nameIn.value = ''; qtyIn.value=''; calsIn.value=''; pIn.value=''; cIn.value=''; fIn.value='';
+      saveDay(selectedDateKey, day);
+      updateAll();
+    };
+  });
+}
+
+/* Calculate totals */
+function calculateTotals(day){
+  let cals=0, p=0, carbs=0, fats=0;
+  MEAL_KEYS.forEach(k=>{
+    const meal = day.meals[k];
+    if(!meal.skipped){
+      meal.items.forEach(it=>{
+        cals += Number(it.calories) || 0;
+        p += Number(it.protein) || 0;
+        carbs += Number(it.carbs) || 0;
+        fats += Number(it.fats) || 0;
+      });
+    }
+  });
+  return { calories: Math.round(cals), protein: Math.round(p), carbs: Math.round(carbs), fats: Math.round(fats) };
+}
+
+/* Update calorie status */
+function updateCalorieStatus(day, totals){
+  const maintenance = day.maintenance || Number(maintenanceInput.value) || null;
+  const defMinVal = Number(day.deficit?.min ?? defMin.value) || Number(defMin.value);
+  const defMaxVal = Number(day.deficit?.max ?? defMax.value) || Number(defMax.value);
+  if(maintenance){
+    const low = Math.round(maintenance * (1 - defMaxVal/100));
+    const high = Math.round(maintenance * (1 - defMinVal/100));
+    const cals = totals.calories;
+    calorieStatus.textContent = `${cals} kcal (target ${low}–${high})`;
+    if(cals < low) {
+      calorieStatus.style.color = 'var(--success)';
+      calorieStatus.title = 'Below target range';
+    } else if(cals <= high) {
+      calorieStatus.style.color = '#f59e0b';
+      calorieStatus.title = 'Within target range';
+    } else {
+      calorieStatus.style.color = 'var(--danger)';
+      calorieStatus.title = 'Above target range';
+    }
+  } else {
+    calorieStatus.textContent = 'Set maintenance calories';
+    calorieStatus.style.color = 'var(--muted)';
+  }
+}
+
+/* Update water UI */
+function updateWaterUI(day){
+  const consumed = day.water.consumedMl || 0;
+  const goal = day.water.goalMl || 2000;
+  const pct = Math.min(100, Math.round((consumed/goal)*100));
+  waterFill.style.width = pct + '%';
+  waterText.textContent = `${consumed} / ${goal} ml`;
+  if(consumed >= goal){
+    waterFill.classList.add('goal-hit');
+    waterAnim.textContent = 'Goal reached 🎉';
+    setTimeout(()=> waterFill.classList.remove('goal-hit'), 1200);
+  } else {
+    waterAnim.textContent = '';
+  }
+}
+
+/* Render calendar (month view) and highlight days with data */
+function renderCalendar(){
+  calendarEl.innerHTML = '';
+  const selDate = new Date(selectedDateKey);
+  const year = selDate.getFullYear();
+  const month = selDate.getMonth();
+  const first = new Date(year, month, 1);
+  const startDay = first.getDay(); // 0-6
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  // blanks
+  for(let i=0;i<startDay;i++){
+    const blank = document.createElement('div');
+    blank.className = 'day';
+    blank.style.visibility = 'hidden';
+    calendarEl.appendChild(blank);
+  }
+  const store = readStore();
+  for(let d=1; d<=daysInMonth; d++){
+    const key = getDateKey(new Date(year, month, d));
+    const dayObj = store[key] || null;
+    const el = document.createElement('div');
+    el.className = 'day';
+    el.textContent = d;
+    if(dayObj && hasAnyData(dayObj)) el.classList.add('has-data');
+    el.onclick = ()=>{
+      selectedDateKey = key;
+      datePicker.value = selectedDateKey;
+      updateAll();
+    };
+    calendarEl.appendChild(el);
+  }
+}
+
+/* Check if a day has any meaningful data */
+function hasAnyData(dayObj){
+  if(!dayObj) return false;
+  if(dayObj.weightKg || dayObj.steps) return true;
+  if(dayObj.nofap) return true;
+  if((dayObj.water && (dayObj.water.consumedMl>0))) return true;
+  for(const k of MEAL_KEYS){
+    if(dayObj.meals[k] && dayObj.meals[k].items.length>0) return true;
+  }
+  // also consider user-set deficit as data
+  if(dayObj.deficit && dayObj.deficit._userSet) return true;
+  return false;
+}
+
+/* Update date label (Today or date) */
+function updateDateLabel(){
+  const todayKey = getDateKey();
+  if(selectedDateKey === todayKey){
+    dateLabel.textContent = 'Today';
+  } else {
+    const d = new Date(selectedDateKey);
+    dateLabel.textContent = d.toLocaleDateString();
+  }
+}
+
+/* Build history table (last 30 days) */
+function renderHistory(){
+  historyTableBody.innerHTML = '';
+  const store = readStore();
+  const keys = Object.keys(store).sort((a,b)=>b.localeCompare(a)); // newest first
+  let count = 0;
+  for(const key of keys){
+    if(count >= 30) break;
+    const day = store[key];
+    if(day.weightKg === null && (day.steps === null || day.steps === undefined)) continue;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${key}</td><td>${day.weightKg ?? '—'}</td><td>${day.steps ?? '—'}</td><td><button class="small ghost editRow">Edit</button></td>`;
+    historyTableBody.appendChild(tr);
+    tr.querySelector('.editRow').addEventListener('click', ()=>{
+      selectedDateKey = key;
+      datePicker.value = selectedDateKey;
+      updateAll();
+      weightInput.value = day.weightKg ?? '';
+      stepsInput.value = day.steps ?? '';
+    });
+    count++;
+  }
+}
+
+/* Compute NoFap streak ending at a given dateKey (inclusive).
+   Counts consecutive days backwards from dateKey while nofap === true. */
+function computeNoFapStreakForDate(dateKey){
+  const store = readStore();
+  let streak = 0;
+  let cur = new Date(dateKey);
+  while(true){
+    const key = getDateKey(cur);
+    const day = store[key];
+    if(day && day.nofap){
+      streak++;
+      cur.setDate(cur.getDate() - 1);
+    } else break;
+  }
+  return streak;
+}
+
+/* Update NoFap UI for the selected date (fluid behavior) */
+function updateNoFapUI(){
+  const store = readStore();
+  const day = getDay(selectedDateKey);
+  const streak = computeNoFapStreakForDate(selectedDateKey);
+  nofapStreakEl.textContent = `${streak} 🔥`;
+  nofapToggle.textContent = day.nofap ? 'Unmark Day' : 'Mark Day';
+}
+
+/* Escape HTML */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* -------------------------
+   Deficit propagation logic
+   - When user applies deficit on selected date, mark that date as _userSet
+   - Propagate to future dates until encountering another date with _userSet === true
+   ------------------------- */
+function setDeficitForDate(key, min, max, userSet = true){
+  const day = getDay(key);
+  day.deficit = { min: Number(min), max: Number(max), _userSet: !!userSet };
+  saveDay(key, day);
+}
+
+/* Propagate deficit forward from startKey (exclusive of startKey? inclusive)
+   We'll set startKey as user-set and then apply same values to subsequent dates
+   until we hit a date that already has _userSet === true (and is not the startKey).
+*/
+function propagateDeficitFrom(startKey, min, max){
+  // ensure startKey is set as userSet
+  setDeficitForDate(startKey, min, max, true);
+
+  // iterate forward up to a reasonable limit (2 years) to avoid infinite loops
+  let cur = new Date(startKey);
+  for(let i=0;i<730;i++){
+    cur.setDate(cur.getDate() + 1);
+    const key = getDateKey(cur);
+    const store = readStore();
+    const existing = store[key];
+    if(existing && existing.deficit && existing.deficit._userSet){
+      // stop propagation when we encounter a user-set deficit (change again)
+      break;
+    }
+    // otherwise set deficit (mark as inherited, not userSet)
+    const day = getDay(key);
+    day.deficit = { min: Number(min), max: Number(max), _userSet: false };
+    saveDay(key, day);
+  }
+}
+
+/* -------------------------
+   Update everything
+   ------------------------- */
+function updateAll(){
+  const day = getDay(selectedDateKey);
+  maintenanceInput.value = day.maintenance ?? maintenanceInput.value;
+  defMin.value = day.deficit?.min ?? defMin.value;
+  defMax.value = day.deficit?.max ?? defMax.value;
+
+  renderMeals();
+  const totals = calculateTotals(day);
+  totalCaloriesEl.textContent = totals.calories;
+  totalProteinEl.textContent = totals.protein;
+  totalCarbsEl.textContent = totals.carbs;
+  totalFatsEl.textContent = totals.fats;
+  updateCalorieStatus(day, totals);
+  updateWaterUI(day);
+  renderCalendar();
+  renderHistory();
+  updateNoFapUI();
+  updateDateLabel();
+}
+
+/* -------------------------
+   Event bindings
+   ------------------------- */
+
+todayBtn.addEventListener('click', ()=>{
+  selectedDateKey = getDateKey();
+  datePicker.value = selectedDateKey;
+  updateAll();
+});
+prevDayBtn.addEventListener('click', ()=>{
+  const d = new Date(selectedDateKey);
+  d.setDate(d.getDate() - 1);
+  selectedDateKey = getDateKey(d);
+  datePicker.value = selectedDateKey;
+  updateAll();
+});
+nextDayBtn.addEventListener('click', ()=>{
+  const d = new Date(selectedDateKey);
+  d.setDate(d.getDate() + 1);
+  selectedDateKey = getDateKey(d);
+  datePicker.value = selectedDateKey;
+  updateAll();
+});
+
+datePicker.addEventListener('change', (e)=>{
+  selectedDateKey = e.target.value;
+  updateAll();
+});
+
+/* Maintenance & deficit save */
+maintenanceInput.addEventListener('change', ()=>{
+  const day = getDay(selectedDateKey);
+  day.maintenance = Number(maintenanceInput.value) || null;
+  saveDay(selectedDateKey, day);
+  updateAll();
+});
+
+/* Apply deficit button: set on selected date and propagate forward until next user-set */
+applyDeficitBtn.addEventListener('click', ()=>{
+  const min = Number(defMin.value) || 10;
+  const max = Number(defMax.value) || 15;
+  propagateDeficitFrom(selectedDateKey, min, max);
+  updateAll();
+});
+
+/* Water controls */
+add250.addEventListener('click', ()=>{
+  const day = getDay(selectedDateKey);
+  day.water.consumedMl = (day.water.consumedMl || 0) + 250;
+  saveDay(selectedDateKey, day);
+  updateAll();
+});
+sub250.addEventListener('click', ()=>{
+  const day = getDay(selectedDateKey);
+  day.water.consumedMl = Math.max(0, (day.water.consumedMl || 0) - 250);
+  saveDay(selectedDateKey, day);
+  updateAll();
+});
+setWaterGoal.addEventListener('click', ()=>{
+  const val = Number(waterCustom.value);
+  if(!val || val <= 0) return alert('Enter a positive goal in ml');
+  const day = getDay(selectedDateKey);
+  day.water.goalMl = val;
+  saveDay(selectedDateKey, day);
+  waterCustom.value = '';
+  updateAll();
+});
+
+/* Weight & steps */
+saveWeight.addEventListener('click', ()=>{
+  const val = Number(weightInput.value);
+  if(!val) return alert('Enter a valid weight');
+  const day = getDay(selectedDateKey);
+  day.weightKg = val;
+  saveDay(selectedDateKey, day);
+  weightSaved.textContent = 'Saved';
+  setTimeout(()=> weightSaved.textContent = '', 1200);
+  weightInput.value = '';
+  updateAll();
+});
+saveSteps.addEventListener('click', ()=>{
+  const val = Number(stepsInput.value);
+  if(isNaN(val)) return alert('Enter valid steps');
+  const day = getDay(selectedDateKey);
+  day.steps = val;
+  saveDay(selectedDateKey, day);
+  stepsSaved.textContent = 'Saved';
+  setTimeout(()=> stepsSaved.textContent = '', 1200);
+  stepsInput.value = '';
+  updateAll();
+});
+
+/* NoFap toggle: toggle selected date's nofap and update streak fluidly */
+nofapToggle.addEventListener('click', ()=>{
+  const day = getDay(selectedDateKey);
+  day.nofap = !day.nofap;
+  saveDay(selectedDateKey, day);
+  // After toggling, update UI for selected date and adjacent dates (streaks are computed dynamically)
+  updateAll();
+});
+
+/* NoFap reset (clear all marks) */
+nofapReset.addEventListener('click', ()=>{
+  if(!confirm('Reset NoFap streak and clear all daily marks?')) return;
+  const store = readStore();
+  for(const k of Object.keys(store)){
+    if(store[k].nofap) store[k].nofap = false;
+  }
+  writeStore(store);
+  updateAll();
+});
+
+/* Export / Import / Clear */
+exportBtn.addEventListener('click', ()=>{
+  const data = readStore();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'fitness-data.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+
+importBtn.addEventListener('click', ()=> importFile.click());
+importFile.addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const parsed = JSON.parse(reader.result);
+      writeStore(parsed);
+      updateAll();
+      alert('Imported successfully');
+    }catch(err){
+      alert('Invalid JSON file');
+    }
+  };
+  reader.readAsText(f);
+});
+
+clearBtn.addEventListener('click', ()=>{
+  if(confirm('Clear all stored data? This cannot be undone.')) {
+    localStorage.removeItem(STORAGE_KEY);
+    updateAll();
+  }
+});
+
+/* Initialize UI */
+createMealCards();
+updateAll();
+
+/* Accessibility: keyboard shortcuts */
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 't' && (e.ctrlKey || e.metaKey)){
+    e.preventDefault();
+    selectedDateKey = getDateKey();
+    datePicker.value = selectedDateKey;
+    updateAll();
+  }
+});
+</script>
+</body>
+</html>
+```
