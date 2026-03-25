@@ -1,10 +1,9 @@
-```html
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Fitness Tracker — v1 (deficit propagation & NoFap fix)</title>
+<title>Fitness Tracker — v1 (deficit propagation & routine fix)</title>
 <style>
   :root{
     --bg:#f4f7fb; --card:#fff; --muted:#6b7280; --accent:#2563eb; --accent-2:#0ea5a4;
@@ -76,7 +75,7 @@
     <h1>🏃‍♂️ Fitness Tracker</h1>
     <div class="accent-badge">Local</div>
   </div>
-  <div class="muted">Deficit propagation, NoFap fluid streaks, quantity, improved UI</div>
+  <div class="muted">Deficit propagation, Habit fluid streaks, quantity, improved option</div>
   <div class="top-right">
     <div class="controls">
       <input id="datePicker" type="date" />
@@ -120,7 +119,7 @@
     </div>
 
     <div class="card" style="padding:10px;margin-bottom:12px">
-      <label><strong>💧 Water Tracker</strong></label>
+      <label><strong>💧daily Water Tracker: </strong></label>
       <div class="muted" style="font-size:0.85rem">+250 ml / −250 ml; set custom goal</div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button id="add250" class="small">+250 ml</button>
@@ -140,14 +139,14 @@
     <div class="card" style="padding:10px;margin-bottom:12px">
       <div class="nofap-card">
         <div>
-          <label><strong>🔥 NoFap</strong></label>
+          <label><strong>🔥 habit upkeep: </strong></label>
           <div class="muted" style="font-size:0.85rem">Tap to mark success for the selected day</div>
         </div>
         <div style="text-align:right">
-          <div id="nofapStreak" class="streak">0 🔥</div>
+          <div id="habitStreak" class="streak">0 🔥</div>
           <div style="margin-top:8px">
-            <button id="nofapToggle" class="small">Mark Day</button>
-            <button id="nofapReset" class="small ghost">Reset</button>
+            <button id="habitToggle" class="small">Mark Day</button>
+            <button id="habitReset" class="small ghost">Reset</button>
           </div>
         </div>
       </div>
@@ -317,7 +316,7 @@ const waterAnim = document.getElementById('waterAnim');
 
 const weightInput = document.getElementById('weightInput');
 const saveWeight = document.getElementById('saveWeight');
-const weightSaved = document.getElementById('weightSaved');
+const weightSaved = document8.getElementById('weightSaved');
 const stepsInput = document.getElementById('stepsInput');
 const saveSteps = document.getElementById('saveSteps');
 const stepsSaved = document.getElementById('stepsSaved');
@@ -330,9 +329,9 @@ const importBtn = document.getElementById('importBtn');
 const importFile = document.getElementById('importFile');
 const clearBtn = document.getElementById('clearBtn');
 
-const nofapStreakEl = document.getElementById('nofapStreak');
-const nofapToggle = document.getElementById('nofapToggle');
-const nofapReset = document.getElementById('nofapReset');
+const nofapStreakEl = document.getElementById('habitStreak');
+const nofapToggle = document.getElementById('habitToggle');
+const nofapReset = document.getElementById('habitReset');
 
 let selectedDateKey = getDateKey();
 datePicker.value = selectedDateKey;
