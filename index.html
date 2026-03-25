@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fitness Tracker — v1 (deficit propagation & routine fix)</title>
+</head>
+<body>
+<header>
+  <div class="header-row">
+    <h1>🏃‍♂️ Fitness Tracker</h1>
+    <div class="accent-badge">Local</div>
+  </div>
+  <div class="muted">Deficit propagation, Habit fluid streaks, quantity, improved option</div>
+  <div class="top-right">
+    <div class="controls">
+      <input id="datePicker" type="date" />
+      <div style="display:flex;gap:6px;align-items:center">
+        <button id="prevDay" class="small ghost">◀ Prev</button>
+        <button id="todayBtn" class="small">Today</button>
+        <button id="nextDay" class="small ghost">Next ▶</button>
+      </div>
+    </div>
+    <div style="margin-top:6px" class="dateLabel muted" id="dateLabel">Today</div>
+  </div>
+</header>
+
+<main class="container">
+  <section class="card col-4">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 style="margin:0">⚙️ Goals & Water</h2>
+      <div class="muted-small">v1 storage</div>
+    </div>
+
+    <div style="margin-top:10px;margin-bottom:10px">
+      <label><strong>Maintenance Calories</strong></label>
+      <input id="maintenanceInput" type="number" min="0" placeholder="e.g., 2200" />
+    </div>
+
+    <div style="margin-bottom:10px">
+      <label><strong>Deficit Range (%)</strong></label>
+      <div class="row">
+        <input id="defMin" type="number" min="0" max="50" value="10" style="width:48%" />
+        <input id="defMax" type="number" min="0" max="50" value="15" style="width:48%" />
+      </div>
+      <div class="muted-small" style="margin-top:6px">When changed, this deficit will apply to this date and all future dates until you change it again.</div>
+      <div style="margin-top:8px">
+        <button id="applyDeficit" class="small">Apply deficit from this date →</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px;margin-bottom:12px">
+      <div class="flex-between"><label><strong>Calorie Status</strong></label><div id="calorieStatus" class="muted">—</div></div>
+      <div class="muted" style="font-size:0.85rem;margin-top:6px">Shows if daily calories are below, within, or above target range</div>
+    </div>
+
+    <div class="card" style="padding:10px;margin-bottom:12px">
+      <label><strong>💧daily Water Tracker: </strong></label>
+      <div class="muted" style="font-size:0.85rem">+250 ml / −250 ml; set custom goal</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="add250" class="small">+250 ml</button>
+        <button id="sub250" class="small ghost">−250 ml</button>
+        <input id="waterCustom" type="number" min="0" placeholder="Goal ml" />
+        <button id="setWaterGoal" class="small ghost">Set</button>
+      </div>
+      <div style="margin-top:10px">
+        <div class="water-bar"><div id="waterFill" class="water-fill"></div></div>
+        <div class="flex-between" style="margin-top:6px">
+          <div class="muted" id="waterText">0 / 2000 ml</div>
+          <div id="waterAnim" class="muted"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px;margin-bottom:12px">
+      <div class="nofap-card">
+        <div>
+          <label><strong>🔥 habit upkeep: </strong></label>
+          <div class="muted" style="font-size:0.85rem">Tap to mark success for the selected day</div>
+        </div>
+        <div style="text-align:right">
+          <div id="habitStreak" class="streak">0 🔥</div>
+          <div style="margin-top:8px">
+            <button id="habitToggle" class="small">Mark Day</button>
+            <button id="habitReset" class="small ghost">Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:12px">
+      <label><strong>⚖️ Weight (kg) — log today's</strong></label>
+      <div class="row">
+        <input id="weightInput" type="number" step="0.1" placeholder="e.g., 72.5" />
+        <button id="saveWeight" class="small">Save</button>
+      </div>
+      <div class="muted" id="weightSaved" style="margin-top:6px"></div>
+    </div>
+
+    <div>
+      <label><strong>🚶 Steps — log today's</strong></label>
+      <div class="row">
+        <input id="stepsInput" type="number" min="0" placeholder="e.g., 8000" />
+        <button id="saveSteps" class="small">Save</button>
+      </div>
+      <div class="muted" id="stepsSaved" style="margin-top:6px"></div>
+    </div>
+  </section>
+
+  <section class="card col-8">
+    <h2 style="margin-top:0">🍽️ Meals</h2>
+    <div class="meals" id="mealsContainer"></div>
+
+    <div style="margin-top:12px" class="card">
+      <div class="flex-between">
+        <div>
+          <strong>Daily Totals</strong>
+          <div class="muted" style="font-size:0.85rem">Calories and macros for selected date</div>
+        </div>
+        <div class="totals">
+          <div class="pill">🔥 Calories: <span id="totalCalories">0</span></div>
+          <div class="pill">💪 Protein: <span id="totalProtein">0</span> g</div>
+          <div class="pill">🍞 Carbs: <span id="totalCarbs">0</span> g</div>
+          <div class="pill">🥑 Fats: <span id="totalFats">0</span> g</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card col-6">
+    <h2 style="margin-top:0">📅 Calendar</h2>
+    <div class="muted" style="font-size:0.9rem;margin-bottom:8px">Click a date to select it. Dates with any logged data are highlighted.</div>
+    <div id="calendar" class="calendar"></div>
+    <div style="margin-top:8px" class="muted">Green days have saved data</div>
+  </section>
+
+  <section class="card col-6">
+    <h2 style="margin-top:0">📈 Weight & Steps History</h2>
+    <div class="muted" style="font-size:0.9rem;margin-bottom:8px">Recent entries (click a row to edit)</div>
+    <div style="max-height:260px;overflow:auto">
+      <table id="historyTable">
+        <thead><tr><th>Date</th><th>Weight (kg)</th><th>Steps</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card col-12">
+    <h2 style="margin-top:0">Data Controls</h2>
+    <div class="row">
+      <button id="exportBtn" class="small ghost">Export JSON</button>
+      <button id="importBtn" class="small ghost">Import JSON</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+      <button id="clearBtn" class="small" style="background:var(--danger)">Clear All</button>
+    </div>
+    <div class="muted" style="margin-top:8px">All data is stored locally in your browser's localStorage.</div>
+  </section>
+</main>
+
+<footer>Responsive, modular, localStorage-based fitness tracker — v1 storage</footer>
+
+
+</body>
+</html>
